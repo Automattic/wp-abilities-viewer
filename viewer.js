@@ -172,9 +172,48 @@
 		return args;
 	}
 
+	// Match the run controller's method-per-annotation rule. Sending the wrong
+	// method comes back as `rest_ability_invalid_method` (HTTP 405).
 	function pickRestMethod( annotations ) {
-		if ( annotations && annotations.readonly === true ) return 'GET';
+		if ( ! annotations ) return 'POST';
+		if ( annotations.readonly === true ) return 'GET';
+		if ( annotations.destructive === true && annotations.idempotent === true ) return 'DELETE';
 		return 'POST';
+	}
+
+	// Walk a value alongside a JSON-Schema fragment and coerce primitives to
+	// the declared type. The run controller's GET/DELETE branch reads input
+	// from PHP query params (everything is a string), and the abilities API
+	// validates with rest_validate_value_from_schema (which accepts numeric
+	// strings) but never sanitizes before calling execute(). Ability callbacks
+	// that use strict checks like `is_int($v)` therefore silently drop GET
+	// inputs. Coercing here doesn't help GET/DELETE on the wire (URLSearchParams
+	// stringifies everything), but it keeps POST bodies in the right shape and
+	// makes the intent visible at the call site.
+	function coerceToSchema( value, schema ) {
+		if ( ! schema || value === null || value === undefined ) return value;
+		const type = Array.isArray( schema.type ) ? schema.type.find( ( t ) => t !== 'null' ) : schema.type;
+		if ( type === 'integer' && typeof value === 'string' && value !== '' && Number.isFinite( Number( value ) ) ) {
+			return parseInt( value, 10 );
+		}
+		if ( type === 'number' && typeof value === 'string' && value !== '' && Number.isFinite( Number( value ) ) ) {
+			return parseFloat( value );
+		}
+		if ( type === 'boolean' && typeof value === 'string' ) {
+			if ( value === 'true' ) return true;
+			if ( value === 'false' ) return false;
+		}
+		if ( type === 'array' && Array.isArray( value ) && schema.items ) {
+			return value.map( ( v ) => coerceToSchema( v, schema.items ) );
+		}
+		if ( type === 'object' && value && typeof value === 'object' && schema.properties ) {
+			const out = {};
+			for ( const [ k, v ] of Object.entries( value ) ) {
+				out[ k ] = schema.properties[ k ] ? coerceToSchema( v, schema.properties[ k ] ) : v;
+			}
+			return out;
+		}
+		return value;
 	}
 
 	async function fetchAbilityDefinition( name, transport ) {
@@ -199,10 +238,11 @@
 		}
 	}
 
-	// Serialize a nested value into PHP-style bracket notation (input[slug]=...,
-	// input[items][0]=...) so $request->get_query_params() returns it as an array.
-	// JSON-encoding the whole payload as a single string fails because PHP keeps
-	// it as a string and the schema's type:object check rejects it.
+	// Serialize a nested value into PHP-style bracket notation for the GET
+	// query string (input[slug]=..., input[items][0]=...). PHP parses this
+	// into an array on $_GET. JSON-encoding the whole payload as a single
+	// `input` value fails: the controller reads $query_params['input'] as a
+	// raw string, and the schema's type:object check then rejects it.
 	function appendNestedQuery( params, key, value ) {
 		if ( value === null || value === undefined ) return;
 		if ( Array.isArray( value ) ) {
@@ -216,22 +256,21 @@
 		}
 	}
 
-	async function executeRest( name, args, annotations ) {
+	async function executeRest( name, args, annotations, schema ) {
 		const method = pickRestMethod( annotations );
 		let path = '/wp-abilities/v1/abilities/' + name + '/run';
 		const request = { path, method };
-		// The run controller reads the ability's input from the "input" key
-		// (query string on GET/DELETE; JSON body on POST). See
-		// class-wp-rest-abilities-v1-run-controller.php::get_input_from_request.
-		const payload = args || {};
+		const payload = coerceToSchema( args || {}, schema );
 		const hasArgs = Object.keys( payload ).length > 0;
 		if ( method === 'GET' || method === 'DELETE' ) {
 			// Always send `input` — even when empty — so the server treats it
 			// as an object instead of null. `rest_is_object('')` returns true
 			// and `rest_sanitize_object('')` yields []; omitting `input` would
 			// leave it null and fail "input is not of type object". For
-			// non-empty payloads use bracket notation so PHP parses it into
-			// an actual array/object.
+			// non-empty payloads, bracket notation gives PHP an array on the
+			// wire — but everything on the wire is still strings, so abilities
+			// whose execute callbacks use strict `is_int($v)` checks will see
+			// no values. That's a server-side gap; coercion in JS can't fix it.
 			const qp = new URLSearchParams();
 			if ( hasArgs ) {
 				appendNestedQuery( qp, 'input', payload );
@@ -241,8 +280,7 @@
 			path += '?' + qp.toString();
 			request.path = path;
 		} else {
-			// Always send `input` for POST — even when empty — so schema validation
-			// reports specific missing-property errors instead of "input is not of type object".
+			// JSON body preserves types end to end.
 			request.data = { input: payload };
 		}
 		const started = performance.now();
@@ -352,7 +390,7 @@
 			resultBlock.textContent = 'executing…';
 
 			const outcome = transport === 'rest'
-				? await executeRest( name, args, annotations )
+				? await executeRest( name, args, annotations, schema )
 				: await executeLocal( name, args );
 
 			resultBlock.className = 'wpav-result' + ( outcome.ok ? '' : ' wpav-result-error' );

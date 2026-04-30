@@ -4,7 +4,7 @@ Tags: abilities, developer, mcp
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.2.24
-Stable tag: 0.3.9
+Stable tag: 0.3.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,19 @@ Yes. It relies only on the core Abilities API (WP 6.9+).
 1. Tools → WP Abilities listing every registered ability, with the runner panel expanded for `core/get-site-info` showing the input form, REST endpoint, and JSON response.
 
 == Changelog ==
+
+= 0.3.10 =
+* Match the run controller's exact method-per-annotation rule:
+  `readonly` → GET, `destructive` AND `idempotent` → DELETE, else POST.
+  The previous heuristic mapped `destructive` alone to DELETE, which
+  triggered `rest_ability_invalid_method` (HTTP 405) on plain
+  destructive abilities.
+* Coerce form values against the input schema (`integer`, `number`,
+  `boolean`) recursively before sending. POST requests get correctly
+  typed JSON; GET/DELETE are still string-only on the wire (PHP query
+  parsing stringifies everything), so abilities whose callbacks use
+  strict checks like `is_int($v)` will still drop values — that's a
+  server-side gap, not something the runner can patch from the client.
 
 = 0.3.9 =
 * Render optional boolean fields as a three-way radio group (`unset` /
