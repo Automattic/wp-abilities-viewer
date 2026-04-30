@@ -173,9 +173,7 @@
 	}
 
 	function pickRestMethod( annotations ) {
-		if ( ! annotations ) return 'POST';
-		if ( annotations.readonly === true ) return 'GET';
-		if ( annotations.destructive === true ) return 'DELETE';
+		if ( annotations && annotations.readonly === true ) return 'GET';
 		return 'POST';
 	}
 
@@ -183,19 +181,14 @@
 		if ( transport === 'rest' ) {
 			return apiFetch( { path: '/wp-abilities/v1/abilities/' + name } );
 		}
-		// Local transport: use the same REST detail call if available, but fall
-		// back gracefully when the detail endpoint also refuses non-REST abilities.
+		// Local transport: try the REST detail call first, then fall back to a
+		// minimal definition scraped from the page DOM when the detail endpoint
+		// refuses non-REST abilities. The DOM fallback is degraded — schema is
+		// empty, so the form will render "No input required."
 		try {
 			return await apiFetch( { path: '/wp-abilities/v1/abilities/' + name } );
 		} catch ( err ) {
-			// Non-REST ability — pull the definition from the admin-ajax helper.
-			const form = new FormData();
-			form.append( 'action', localCfg.action + '_definition' );
-			form.append( 'nonce', localCfg.nonce );
-			form.append( 'ability_name', name );
-			// We don't actually have a _definition ajax handler; fall back to
-			// inferring a minimal definition from the page's DOM.
-			const row = document.querySelector( `tr.wpav-row[data-ability="${ cssEscape( name ) }"]` );
+			const row = document.querySelector( `tr.wpav-row[data-ability="${ CSS.escape( name ) }"]` );
 			return {
 				name,
 				input_schema: { type: 'object', properties: {} },
@@ -204,10 +197,6 @@
 				description: '',
 			};
 		}
-	}
-
-	function cssEscape( s ) {
-		return String( s ).replace( /["\\]/g, '\\$&' );
 	}
 
 	// Serialize a nested value into PHP-style bracket notation (input[slug]=...,
@@ -305,7 +294,7 @@
 		}
 
 		const panel = el( 'tr', { class: 'wpav-panel' } );
-		const cell = el( 'td', { colspan: '8' } );
+		const cell = el( 'td', { colspan: String( row.children.length ) } );
 		panel.appendChild( cell );
 		cell.appendChild( el( 'div', { class: 'wpav-loading', text: 'Loading ability definition…' } ) );
 		row.after( panel );

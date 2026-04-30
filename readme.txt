@@ -4,7 +4,7 @@ Tags: abilities, developer, mcp
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.2.24
-Stable tag: 0.3.3
+Stable tag: 0.3.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,7 +66,24 @@ ability pipeline WordPress core uses internally.
 
 Yes. It relies only on the core Abilities API (WP 6.9+).
 
+== Screenshots ==
+
+1. Tools → WP Abilities listing every registered ability, with the runner panel expanded for `core/get-site-info` showing the input form, REST endpoint, and JSON response.
+
 == Changelog ==
+
+= 0.3.8 =
+* Sanitize the ability name from the local-run admin-ajax handler.
+* Guard `format_annotations()` against non-scalar values (avoids "Array" output
+  and PHP 8 notices when an annotation value is itself an array).
+* Replace the hand-rolled CSS selector escape with `CSS.escape()`.
+* Compute the runner panel's `colspan` from the row's column count so it stays
+  correct if the table layout changes.
+* Drop the `destructive → DELETE` REST method mapping; the run controller
+  registers POST, so always use POST for non-readonly abilities.
+* Remove dead admin-ajax `_definition` fallback that was never wired up.
+* Add `Text Domain` / `Domain Path` headers and `load_plugin_textdomain()` for
+  manual installs.
 
 = 0.3.3 =
 * Fix REST runs: the controller reads `input` from a wrapped key in the

@@ -3,11 +3,13 @@
  * Plugin Name:       WP Abilities Viewer
  * Plugin URI:        https://github.com/WordPress/agent-skills
  * Description:       Lists every WordPress ability registered on this site and lets an admin invoke each one — via the real REST route when exposed, otherwise via the same in-process pipeline. Tools → WP Abilities.
- * Version:           0.3.7
+ * Version:           0.3.8
  * Requires at least: 6.9
  * Requires PHP:      7.2.24
  * Author:            Agent Skills
  * License:           GPL-2.0-or-later
+ * Text Domain:       wp-abilities-viewer
+ * Domain Path:       /languages
  *
  * @package WP_Abilities_Viewer
  */
@@ -20,13 +22,18 @@ defined( 'ABSPATH' ) || exit;
 
 const MENU_SLUG    = 'wp-abilities-viewer';
 const ASSET_HANDLE = 'wp-abilities-viewer';
-const VERSION      = '0.3.7';
+const VERSION      = '0.3.8';
 const NONCE_ACTION = 'wp-abilities-viewer-run';
 const AJAX_ACTION  = 'wp_abilities_viewer_run';
 
+add_action( 'init', __NAMESPACE__ . '\\load_textdomain' );
 add_action( 'admin_menu', __NAMESPACE__ . '\\register_admin_page' );
 add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\\enqueue_assets' );
 add_action( 'wp_ajax_' . AJAX_ACTION, __NAMESPACE__ . '\\handle_local_run' );
+
+function load_textdomain(): void {
+	load_plugin_textdomain( 'wp-abilities-viewer', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+}
 
 function register_admin_page(): void {
 	add_management_page(
@@ -170,8 +177,10 @@ function format_annotations( array $annotations ): string {
 	foreach ( $annotations as $key => $value ) {
 		if ( is_bool( $value ) ) {
 			$parts[] = sprintf( '%s=%s', $key, $value ? 'true' : 'false' );
-		} else {
+		} elseif ( is_scalar( $value ) ) {
 			$parts[] = sprintf( '%s=%s', $key, (string) $value );
+		} else {
+			$parts[] = sprintf( '%s=%s', $key, (string) wp_json_encode( $value ) );
 		}
 	}
 	return implode( ', ', $parts );
@@ -192,8 +201,8 @@ function handle_local_run(): void {
 
 	check_ajax_referer( NONCE_ACTION, 'nonce' );
 
-	$name = isset( $_POST['ability_name'] ) ? wp_unslash( $_POST['ability_name'] ) : '';
-	$name = is_string( $name ) ? trim( $name ) : '';
+	$name_raw = isset( $_POST['ability_name'] ) ? wp_unslash( $_POST['ability_name'] ) : '';
+	$name     = is_string( $name_raw ) ? trim( sanitize_text_field( $name_raw ) ) : '';
 	if ( '' === $name ) {
 		wp_send_json_error( array(
 			'code'    => 'missing_name',
