@@ -48,34 +48,35 @@
 				...prop.enum.map( ( v ) => el( 'option', { value: String( v ), text: String( v ) } ) )
 			);
 		} else if ( type === 'boolean' ) {
-			if ( required ) {
-				// Render required booleans as a true/false radio pair so the selected
-				// value is explicit. Optional booleans remain tri-state checkboxes
-				// so users can leave filter-style flags unset.
-				input = el( 'div', {
-					class: 'wpav-input wpav-input-radio',
-					'data-type': 'boolean',
-					'data-required': 'true',
-					'data-name': key,
-				},
+			// Booleans render as a radio group so the user can pick true or false
+			// explicitly. Optional fields get a third "unset" option (selected by
+			// default) so the key can be omitted from the request — a checkbox
+			// can't distinguish "send false" from "don't send the key at all".
+			input = el( 'div', {
+				class: 'wpav-input wpav-input-radio',
+				'data-type': 'boolean',
+				'data-name': key,
+			} );
+			if ( ! required ) {
+				input.appendChild(
 					el( 'label', { class: 'wpav-radio-option' },
-						el( 'input', { type: 'radio', name: key, value: 'true' } ),
-						' true'
-					),
-					el( 'label', { class: 'wpav-radio-option' },
-						el( 'input', { type: 'radio', name: key, value: 'false' } ),
-						' false'
+						el( 'input', { type: 'radio', name: key, value: '', checked: true } ),
+						' unset'
 					)
 				);
-			} else {
-				input = el( 'input', {
-					type: 'checkbox',
-					name: key,
-					'data-type': 'boolean',
-					'data-required': 'false',
-					class: 'wpav-input',
-				} );
 			}
+			input.appendChild(
+				el( 'label', { class: 'wpav-radio-option' },
+					el( 'input', { type: 'radio', name: key, value: 'true' } ),
+					' true'
+				)
+			);
+			input.appendChild(
+				el( 'label', { class: 'wpav-radio-option' },
+					el( 'input', { type: 'radio', name: key, value: 'false' } ),
+					' false'
+				)
+			);
 		} else if ( type === 'integer' ) {
 			input = el( 'input', { type: 'number', step: '1', name: key, 'data-type': 'integer', class: 'wpav-input' } );
 		} else if ( type === 'number' ) {
@@ -131,12 +132,11 @@
 	function coerceValue( input ) {
 		const type = input.dataset.type;
 		if ( type === 'boolean' ) {
-			if ( input.dataset.required === 'true' ) {
-				// Required booleans are rendered as a radio pair (see buildFieldInput).
-				const checked = input.querySelector( 'input[type="radio"]:checked' );
-				return checked ? checked.value === 'true' : undefined;
-			}
-			return input.checked ? true : undefined;
+			// Both required and optional booleans render as a radio group; an
+			// empty value (the optional "unset" option) means "omit this key".
+			const checked = input.querySelector( 'input[type="radio"]:checked' );
+			if ( ! checked || checked.value === '' ) return undefined;
+			return checked.value === 'true';
 		}
 		const raw = input.value;
 		if ( raw === '' ) return undefined;

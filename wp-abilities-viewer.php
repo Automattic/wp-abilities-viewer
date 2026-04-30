@@ -3,7 +3,7 @@
  * Plugin Name:       WP Abilities Viewer
  * Plugin URI:        https://github.com/WordPress/agent-skills
  * Description:       Lists every WordPress ability registered on this site and lets an admin invoke each one — via the real REST route when exposed, otherwise via the same in-process pipeline. Tools → WP Abilities.
- * Version:           0.3.8
+ * Version:           0.3.9
  * Requires at least: 6.9
  * Requires PHP:      7.2.24
  * Author:            Agent Skills
@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 
 const MENU_SLUG    = 'wp-abilities-viewer';
 const ASSET_HANDLE = 'wp-abilities-viewer';
-const VERSION      = '0.3.8';
+const VERSION      = '0.3.9';
 const NONCE_ACTION = 'wp-abilities-viewer-run';
 const AJAX_ACTION  = 'wp_abilities_viewer_run';
 

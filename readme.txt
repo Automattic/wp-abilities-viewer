@@ -4,7 +4,7 @@ Tags: abilities, developer, mcp
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.2.24
-Stable tag: 0.3.8
+Stable tag: 0.3.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,11 @@ Yes. It relies only on the core Abilities API (WP 6.9+).
 1. Tools → WP Abilities listing every registered ability, with the runner panel expanded for `core/get-site-info` showing the input form, REST endpoint, and JSON response.
 
 == Changelog ==
+
+= 0.3.9 =
+* Render optional boolean fields as a three-way radio group (`unset` /
+  `true` / `false`) instead of a checkbox. A checkbox could only send
+  `true` or omit the key, with no way to send an explicit `false`.
 
 = 0.3.8 =
 * Sanitize the ability name from the local-run admin-ajax handler.
