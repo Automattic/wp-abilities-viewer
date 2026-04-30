@@ -1,0 +1,109 @@
+.wpav-wrap code { font-size: 12px; }
+.wpav-table td small { color: #666; display: block; margin-top: 2px; }
+.wpav-panel > td {
+	background: #f6f7f7;
+	border-left: 4px solid #2271b1;
+	padding: 16px;
+}
+.wpav-runner h4 { margin-top: 0; }
+.wpav-endpoint { margin: 4px 0 12px; font-family: monospace; }
+.wpav-http-method {
+	display: inline-block;
+	padding: 1px 6px;
+	background: #2271b1;
+	color: #fff;
+	border-radius: 3px;
+	font-weight: 600;
+	font-size: 11px;
+}
+.wpav-http-method-local { background: #8a6f00; }
+.wpav-badge {
+	display: inline-block;
+	padding: 1px 6px;
+	border-radius: 3px;
+	font-size: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.3px;
+}
+.wpav-badge-rest { background: #e0f2ff; color: #2271b1; }
+.wpav-badge-local { background: #fcf0d5; color: #8a6f00; }
+.wpav-form {
+	display: grid;
+	grid-template-columns: minmax(120px, 180px) 1fr;
+	gap: 6px 12px;
+	margin-bottom: 12px;
+	max-width: 820px;
+}
+.wpav-field {
+	display: contents;
+}
+.wpav-label {
+	font-weight: 600;
+	text-align: right;
+	padding-top: 4px;
+}
+.wpav-type-hint {
+	display: block;
+	font-size: 11px;
+	font-weight: normal;
+	color: #888;
+}
+.wpav-input {
+	font-family: inherit;
+	font-size: 13px;
+	padding: 4px 6px;
+	width: 100%;
+	box-sizing: border-box;
+}
+.wpav-input-json {
+	font-family: Menlo, monospace;
+	font-size: 12px;
+}
+.wpav-input-radio {
+	display: flex;
+	gap: 16px;
+	padding: 4px 0;
+	width: auto;
+}
+.wpav-radio-option {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-weight: normal;
+	cursor: pointer;
+}
+.wpav-radio-option input[type="radio"] {
+	margin: 0;
+}
+.wpav-desc {
+	grid-column: 2 / 3;
+	color: #666;
+	font-size: 12px;
+	margin-top: -2px;
+	margin-bottom: 4px;
+}
+.wpav-no-fields {
+	color: #888;
+	margin: 0 0 12px;
+}
+.wpav-actions { margin: 8px 0; }
+.wpav-result-label { margin: 12px 0 4px; }
+.wpav-result {
+	background: #fff;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	padding: 10px;
+	margin: 0;
+	max-height: 400px;
+	overflow: auto;
+	font-family: Menlo, monospace;
+	font-size: 12px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+.wpav-result-error {
+	border-color: #d63638;
+	background: #fcf0f1;
+}
+.wpav-loading { color: #666; font-style: italic; }
