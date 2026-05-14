@@ -3,7 +3,7 @@
  * Plugin Name:       WP Abilities Viewer
  * Plugin URI:        https://github.com/WordPress/agent-skills
  * Description:       Lists every WordPress ability registered on this site and lets an admin invoke each one — via the real REST route when exposed, otherwise via the same in-process pipeline. Tools → WP Abilities.
- * Version:           0.3.11
+ * Version:           0.3.12
  * Requires at least: 6.9
  * Requires PHP:      7.2.24
  * Author:            Agent Skills
@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 
 const MENU_SLUG    = 'wp-abilities-viewer';
 const ASSET_HANDLE = 'wp-abilities-viewer';
-const VERSION      = '0.3.11';
+const VERSION      = '0.3.12';
 const NONCE_ACTION = 'wp-abilities-viewer-run';
 const AJAX_ACTION  = 'wp_abilities_viewer_run';
 
@@ -171,7 +171,7 @@ function render_abilities_view(): void {
 			'<p>%s</p><p><small>%s</small></p>',
 			sprintf(
 				/* translators: %d: number of abilities registered */
-				esc_html( _n( '%d ability registered. Click Run… on any row to invoke it.', '%d abilities registered. Click Run… on any row to invoke one.', $total, 'wp-abilities-viewer' ) ),
+				esc_html( _n( '%d ability registered. Click View on any row to invoke it.', '%d abilities registered. Click View on any row to invoke one.', $total, 'wp-abilities-viewer' ) ),
 				(int) $total
 			),
 			esc_html__( 'REST-exposed abilities run via /wp-abilities/v1/abilities/<name>/run (the same endpoint an MCP client hits). Non-REST abilities run locally through the same permission_callback + validate_input + execute pipeline.', 'wp-abilities-viewer' )
@@ -336,7 +336,7 @@ function render_row( $ability ): void {
 		echo '<span class="wpav-badge wpav-badge-local" title="' . esc_attr__( 'show_in_rest is false; runs locally through the same permission + schema + execute pipeline.', 'wp-abilities-viewer' ) . '">local</span>';
 	}
 	echo '</td>';
-	echo '<td><button type="button" class="button wpav-run-button" data-ability="' . esc_attr( $name ) . '">' . esc_html__( 'Run…', 'wp-abilities-viewer' ) . '</button></td>';
+	echo '<td><button type="button" class="button wpav-run-button" data-ability="' . esc_attr( $name ) . '">' . esc_html__( 'View', 'wp-abilities-viewer' ) . '</button></td>';
 	echo '</tr>';
 }
 
