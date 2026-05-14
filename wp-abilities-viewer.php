@@ -3,7 +3,7 @@
  * Plugin Name:       WP Abilities Viewer
  * Plugin URI:        https://github.com/WordPress/agent-skills
  * Description:       Lists every WordPress ability registered on this site and lets an admin invoke each one — via the real REST route when exposed, otherwise via the same in-process pipeline. Tools → WP Abilities.
- * Version:           0.3.10
+ * Version:           0.3.11
  * Requires at least: 6.9
  * Requires PHP:      7.2.24
  * Author:            Agent Skills
@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 
 const MENU_SLUG    = 'wp-abilities-viewer';
 const ASSET_HANDLE = 'wp-abilities-viewer';
-const VERSION      = '0.3.10';
+const VERSION      = '0.3.11';
 const NONCE_ACTION = 'wp-abilities-viewer-run';
 const AJAX_ACTION  = 'wp_abilities_viewer_run';
 
@@ -78,32 +78,112 @@ function render_admin_page(): void {
 		return;
 	}
 
-	$abilities = function_exists( 'wp_get_abilities' ) ? wp_get_abilities() : array();
+	$tab     = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'abilities';
+	$allowed = array( 'abilities', 'categories' );
+	if ( ! in_array( $tab, $allowed, true ) ) {
+		$tab = 'abilities';
+	}
 
 	echo '<div class="wrap wpav-wrap">';
 	echo '<h1>' . esc_html__( 'WP Abilities', 'wp-abilities-viewer' ) . '</h1>';
 
+	render_tabs( $tab );
+
+	if ( 'categories' === $tab ) {
+		render_categories_view();
+	} else {
+		render_abilities_view();
+	}
+
+	echo '</div>';
+}
+
+function render_tabs( string $current ): void {
+	$tabs = array(
+		'abilities'  => __( 'Abilities', 'wp-abilities-viewer' ),
+		'categories' => __( 'Categories', 'wp-abilities-viewer' ),
+	);
+
+	echo '<h2 class="nav-tab-wrapper">';
+	foreach ( $tabs as $slug => $label ) {
+		$url     = add_query_arg(
+			array(
+				'page' => MENU_SLUG,
+				'tab'  => $slug,
+			),
+			admin_url( 'tools.php' )
+		);
+		$classes = 'nav-tab' . ( $current === $slug ? ' nav-tab-active' : '' );
+		printf(
+			'<a href="%s" class="%s">%s</a>',
+			esc_url( $url ),
+			esc_attr( $classes ),
+			esc_html( $label )
+		);
+	}
+	echo '</h2>';
+}
+
+function render_abilities_view(): void {
 	if ( ! function_exists( 'wp_get_abilities' ) ) {
 		echo '<div class="notice notice-error"><p>';
 		echo esc_html__( 'wp_get_abilities() is not available. This site needs WordPress 6.9+ with the Abilities API.', 'wp-abilities-viewer' );
-		echo '</p></div></div>';
+		echo '</p></div>';
 		return;
+	}
+
+	$abilities = wp_get_abilities();
+	$filter    = isset( $_GET['category'] ) ? sanitize_key( wp_unslash( $_GET['category'] ) ) : '';
+
+	if ( '' !== $filter ) {
+		$abilities = array_filter(
+			$abilities,
+			static function ( $ability ) use ( $filter ) {
+				$slug = method_exists( $ability, 'get_category' ) ? (string) $ability->get_category() : '';
+				return $slug === $filter;
+			}
+		);
 	}
 
 	$total = count( $abilities );
 
-	printf(
-		'<p>%s</p><p><small>%s</small></p>',
-		sprintf(
-			/* translators: %d: number of abilities registered */
-			esc_html( _n( '%d ability registered. Click Run… on any row to invoke it.', '%d abilities registered. Click Run… on any row to invoke one.', $total, 'wp-abilities-viewer' ) ),
-			(int) $total
-		),
-		esc_html__( 'REST-exposed abilities run via /wp-abilities/v1/abilities/<name>/run (the same endpoint an MCP client hits). Non-REST abilities run locally through the same permission_callback + validate_input + execute pipeline.', 'wp-abilities-viewer' )
-	);
+	if ( '' !== $filter ) {
+		$clear_url = add_query_arg(
+			array(
+				'page' => MENU_SLUG,
+				'tab'  => 'abilities',
+			),
+			admin_url( 'tools.php' )
+		);
+		printf(
+			'<p>%s <a href="%s">%s</a></p>',
+			sprintf(
+				/* translators: 1: number of abilities, 2: category slug */
+				esc_html( _n( '%1$d ability in category %2$s.', '%1$d abilities in category %2$s.', $total, 'wp-abilities-viewer' ) ),
+				(int) $total,
+				'<code>' . esc_html( $filter ) . '</code>'
+			),
+			esc_url( $clear_url ),
+			esc_html__( 'Clear filter', 'wp-abilities-viewer' )
+		);
+	} else {
+		printf(
+			'<p>%s</p><p><small>%s</small></p>',
+			sprintf(
+				/* translators: %d: number of abilities registered */
+				esc_html( _n( '%d ability registered. Click Run… on any row to invoke it.', '%d abilities registered. Click Run… on any row to invoke one.', $total, 'wp-abilities-viewer' ) ),
+				(int) $total
+			),
+			esc_html__( 'REST-exposed abilities run via /wp-abilities/v1/abilities/<name>/run (the same endpoint an MCP client hits). Non-REST abilities run locally through the same permission_callback + validate_input + execute pipeline.', 'wp-abilities-viewer' )
+		);
+	}
 
 	if ( 0 === $total ) {
-		echo '<p><em>' . esc_html__( 'No abilities are registered on this site yet.', 'wp-abilities-viewer' ) . '</em></p></div>';
+		if ( '' !== $filter ) {
+			echo '<p><em>' . esc_html__( 'No abilities match this category.', 'wp-abilities-viewer' ) . '</em></p>';
+		} else {
+			echo '<p><em>' . esc_html__( 'No abilities are registered on this site yet.', 'wp-abilities-viewer' ) . '</em></p>';
+		}
 		return;
 	}
 
@@ -124,7 +204,97 @@ function render_admin_page(): void {
 	}
 
 	echo '</tbody></table>';
-	echo '</div>';
+}
+
+function category_filter_url( string $slug ): string {
+	return add_query_arg(
+		array(
+			'page'     => MENU_SLUG,
+			'tab'      => 'abilities',
+			'category' => $slug,
+		),
+		admin_url( 'tools.php' )
+	);
+}
+
+function render_categories_view(): void {
+	if ( ! function_exists( 'wp_get_ability_categories' ) || ! function_exists( 'wp_get_abilities' ) ) {
+		echo '<div class="notice notice-error"><p>';
+		echo esc_html__( 'wp_get_ability_categories() is not available. This site needs WordPress 6.9+ with the Abilities API.', 'wp-abilities-viewer' );
+		echo '</p></div>';
+		return;
+	}
+
+	$categories = wp_get_ability_categories();
+	$abilities  = wp_get_abilities();
+
+	$counts = array();
+	foreach ( $abilities as $ability ) {
+		$slug = method_exists( $ability, 'get_category' ) ? (string) $ability->get_category() : '';
+		if ( '' === $slug ) {
+			continue;
+		}
+		$counts[ $slug ] = isset( $counts[ $slug ] ) ? $counts[ $slug ] + 1 : 1;
+	}
+
+	$total = count( $categories );
+
+	printf(
+		'<p>%s</p>',
+		sprintf(
+			/* translators: %d: number of categories registered */
+			esc_html( _n( '%d category registered.', '%d categories registered.', $total, 'wp-abilities-viewer' ) ),
+			(int) $total
+		)
+	);
+
+	$orphans = array_diff_key( $counts, $categories );
+
+	if ( 0 === $total && empty( $orphans ) ) {
+		echo '<p><em>' . esc_html__( 'No ability categories are registered on this site yet.', 'wp-abilities-viewer' ) . '</em></p>';
+		return;
+	}
+
+	echo '<table class="widefat striped wpav-table">';
+	echo '<thead><tr>';
+	echo '<th>' . esc_html__( 'Slug', 'wp-abilities-viewer' ) . '</th>';
+	echo '<th>' . esc_html__( 'Label', 'wp-abilities-viewer' ) . '</th>';
+	echo '<th>' . esc_html__( 'Description', 'wp-abilities-viewer' ) . '</th>';
+	echo '<th>' . esc_html__( 'Abilities', 'wp-abilities-viewer' ) . '</th>';
+	echo '</tr></thead><tbody>';
+
+	foreach ( $categories as $slug => $category ) {
+		$slug_str    = is_string( $slug ) ? $slug : ( method_exists( $category, 'get_slug' ) ? (string) $category->get_slug() : '' );
+		$label       = method_exists( $category, 'get_label' ) ? (string) $category->get_label() : '';
+		$description = method_exists( $category, 'get_description' ) ? (string) $category->get_description() : '';
+		$count       = isset( $counts[ $slug_str ] ) ? (int) $counts[ $slug_str ] : 0;
+		$filter_url  = category_filter_url( $slug_str );
+
+		echo '<tr>';
+		echo '<td><a href="' . esc_url( $filter_url ) . '"><code>' . esc_html( $slug_str ) . '</code></a></td>';
+		echo '<td><a href="' . esc_url( $filter_url ) . '">' . esc_html( $label ) . '</a></td>';
+		echo '<td>' . esc_html( $description ) . '</td>';
+		if ( $count > 0 ) {
+			echo '<td><a href="' . esc_url( $filter_url ) . '">' . (int) $count . '</a></td>';
+		} else {
+			echo '<td>0</td>';
+		}
+		echo '</tr>';
+	}
+
+	foreach ( $orphans as $orphan_slug => $orphan_count ) {
+		$orphan_slug_str = (string) $orphan_slug;
+		$filter_url      = category_filter_url( $orphan_slug_str );
+
+		echo '<tr>';
+		echo '<td><a href="' . esc_url( $filter_url ) . '"><code>' . esc_html( $orphan_slug_str ) . '</code></a></td>';
+		echo '<td><em>' . esc_html__( 'Uncategorized', 'wp-abilities-viewer' ) . '</em></td>';
+		echo '<td><small>' . esc_html__( 'Referenced by an ability but not registered as a category.', 'wp-abilities-viewer' ) . '</small></td>';
+		echo '<td><a href="' . esc_url( $filter_url ) . '">' . (int) $orphan_count . '</a></td>';
+		echo '</tr>';
+	}
+
+	echo '</tbody></table>';
 }
 
 /**
@@ -151,7 +321,11 @@ function render_row( $ability ): void {
 	echo '<tr class="wpav-row" data-ability="' . esc_attr( $name ) . '" data-transport="' . esc_attr( $transport ) . '">';
 	echo '<td><code>' . esc_html( $name ) . '</code><br><small>' . esc_html( $description ) . '</small></td>';
 	echo '<td>' . esc_html( $label ) . '</td>';
-	echo '<td>' . esc_html( $category ) . '</td>';
+	if ( '' !== $category ) {
+		echo '<td><a href="' . esc_url( category_filter_url( $category ) ) . '">' . esc_html( $category ) . '</a></td>';
+	} else {
+		echo '<td>—</td>';
+	}
 	echo '<td>' . (int) $input_field_count . ' ' . esc_html__( 'field(s)', 'wp-abilities-viewer' ) . '</td>';
 	echo '<td>' . ( ! empty( $output_schema ) ? esc_html__( 'yes', 'wp-abilities-viewer' ) : '—' ) . '</td>';
 	echo '<td><small>' . esc_html( format_annotations( $annotations ) ) . '</small></td>';
